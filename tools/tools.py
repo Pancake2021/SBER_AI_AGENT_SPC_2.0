@@ -85,7 +85,7 @@ def run_tools(content: dict, api_url: str = "http://localhost:5001") -> dict:
         else:
             return {"status": response.status_code, "answer": f"Ошибка API: {response.text}"}
     except requests.exceptions.ConnectionError:
-        logger.error(f"Не удалось подключиться к API: {api_url}")
+        logger.warning(f"Flask API не запущен ({api_url}), используем локальное выполнение")
         # Fallback: локальное выполнение
         return run_tools_local(content)
     except Exception as e:
@@ -101,41 +101,45 @@ def run_tools_local(content: dict) -> dict:
         if name_tool == "search_content":
             from tools.search_content import Search
             search = Search()
-            return search.run_tool(content.get("query", ""))
+            result = search.run_tool(content.get("query", ""))
         
         elif name_tool == "read_file":
             from tools.bitbucket import ConnectionAPI
             api = ConnectionAPI()
-            return api.read_file_bb(content)
+            result = api.read_file_bb(content)
         
         elif name_tool == "show_files":
             from tools.bitbucket import ConnectionAPI
             api = ConnectionAPI()
-            return api.get_files(content.get("repository", ""))
+            result = api.get_files(content.get("repository", ""))
         
         elif name_tool == "gen_readme":
             from tools.gen_main import GenReadme
             gen = GenReadme(content)
-            return gen.run_tool()
+            result = gen.run_tool()
         
         elif name_tool == "awerage_repo":
             from tools.evalution_repo.evalution_repo import EvalutionRepo
             ev = EvalutionRepo(content)
-            return ev.run_tool()
+            result = ev.run_tool()
         
         elif name_tool == "rate_repository":
             from tools.evalution_code.awerage_main import EvalutionCode
             ev = EvalutionCode(content)
-            return ev.run_tool()
+            result = ev.run_tool()
         
         elif name_tool == "info_tools":
             from tools.info_tool import InfoTools
             info = InfoTools()
-            return info.result()
+            result = info.result()
         
         else:
             return {"status": 404, "answer": f"Инструмент не найден: {name_tool}"}
+        
+        logger.info(f"Инструмент {name_tool} выполнен успешно (локально)")
+        return result
     
     except Exception as e:
         logger.error(f"Ошибка локального выполнения: {str(e)}")
         return {"status": 500, "answer": f"Ошибка: {str(e)}"}
+

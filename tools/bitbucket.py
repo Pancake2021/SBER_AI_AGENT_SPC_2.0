@@ -1,13 +1,20 @@
-"""BitBucket API Integration"""
-from tools.settings import Configure
+"""Модуль для работы с BitBucket и GitHub API"""
 import requests
+from tools.settings import Configure
+from tools.github_client import GitHubAPI
+from loguru import logger
 
 
 class ConnectionAPI(Configure):
-    """Класс для работы с BitBucket API"""
+    """
+    Класс для подключения к VCS (BitBucket или GitHub).
+    Автоматически выбирает провайдера на основе конфигурации.
+    """
 
     def __init__(self):
         super().__init__()
+        # Инициализируем GitHub клиент, если выбран этот провайдер
+        self.github_client = GitHubAPI() if self.provider == "github" else None
 
     def get_requests(self, url: str) -> dict:
         """GET запрос к BitBucket API"""
@@ -23,50 +30,51 @@ class ConnectionAPI(Configure):
             return response.json()
         return {"error": f"Status code: {response.status_code}"}
 
-    def read_file_bb(self, data: dict) -> dict:
-        """Чтение файла из репозитория BitBucket"""
-        repo = data.get("repository")
-        file_path = data.get("file_path")
-        branch = data.get("branch", "master")
-        
-        url = f'/rest/api/1.0/projects/{self.proj}/repos/{repo}/browse/{file_path}'
-        params = {'at': branch, 'limit': 9999}
-        
-        response = requests.get(
-            self.main_url + url,
-            verify=False,
-            headers=self.headers,
-            auth=self.auth,
-            params=params,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            lines = data.get("lines", [])
-            content = "\n".join([line.get("text", "") for line in lines])
-            return {"status": 200, "answer": content}
-        return {"status": 404, "answer": f"Файл не найден: {file_path}"}
+    def read_file_bb(self, data):
+        """Чтение файла"""
+        if self.provider == "github":
+            return self.github_client.read_file_bb(data)
 
-    def get_files(self, repo: str, path: str = "", branch: str = "master") -> dict:
-        """Получить список файлов репозитория"""
-        url = f'/rest/api/1.0/projects/{self.proj}/repos/{repo}/files/{path}'
-        params = {'at': branch, 'limit': 9999}
+        # BitBucket Logic
+        repository = data["repository"]
+        file_path = data["file_path"]
         
-        response = requests.get(
-            self.main_url + url,
-            verify=False,
-            headers=self.headers,
-            auth=self.auth,
-            params=params,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            files = data.get("values", [])
-            return {"status": 200, "answer": files}
-        return {"status": 404, "answer": f"Репозиторий не найден: {repo}"}
+        if not self.token_bb:
+             return {"status": 400, "answer": "Нет токена BitBucket и GitHub. Проверьте .env"}
+
+        headers = {"Authorization": f"Bearer {self.token_bb}"}
+        url = f"{self.main_url}/{self.project_bb}/repos/{repository}/raw/{file_path}"
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                return {"status": 200, "answer": response.text}
+            else:
+                return {"status": response.status_code, "answer": response.text}
+        except Exception as e:
+            logger.error(f"Error BitBucket: {e}")
+            return {"status": 500, "answer": str(e)}
+
+    def get_files(self, name_repository):
+        """Получение списка файлов"""
+        if self.provider == "github":
+            return self.github_client.get_files(name_repository)
+            
+        # BitBucket Logic
+        if not self.token_bb:
+             return {"status": 400, "answer": "Нет токена BitBucket и GitHub. Проверьте .env"}
+
+        headers = {"Authorization": f"Bearer {self.token_bb}"}
+        url = f"{self.main_url}/{self.project_bb}/repos/{name_repository}/files?limit=100000"
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                return {"status": 200, "answer": data["values"]}
+            else:
+                return {"status": response.status_code, "answer": response.text}
+        except Exception as e:
+            logger.error(f"Error BitBucket: {e}")
+            return {"status": 500, "answer": str(e)}
 
     def get_files_repo_awerage(self, repo: str) -> bool:
         """Проверка наличия кода в репозитории"""
@@ -167,6 +175,117 @@ class ConnectionAPI(Configure):
             if users:
                 return {"status": 200, "answer": users[0].get("slug")}
         return {"status": 404, "answer": "Пользователь не найден"}
+
+    def create_pull_request(self, repository, title, description, source_branch, destination_branch="master"):
+        if self.provider == "github":
+            return {"status": 501, "answer": "Create PR not implemented for GitHub yet"}
+        
+        # ... (старый код BitBucket) ...
+        headers = {"Authorization": f"Bearer {self.token_bb}"}
+        url = f"{self.main_url}/{self.project_bb}/repos/{repository}/pull-requests"
+        data = {
+            "title": title,
+            "description": description,
+            "state": "OPEN",
+            "open": True,
+            "closed": False,
+            "fromRef": {
+                "id": f"refs/heads/{source_branch}",
+                "repository": {
+                    "slug": repository,
+                    "name": None,
+                    "project": {
+                        "key": self.project_bb
+                    }
+                }
+            },
+            "toRef": {
+                "id": f"refs/heads/{destination_branch}",
+                "repository": {
+                    "slug": repository,
+                    "name": None,
+                    "project": {
+                        "key": self.project_bb
+                    }
+                }
+            },
+            "locked": False,
+            "reviewers": [
+                {
+                    "user": {
+                        "name": self.user_bb
+                    }
+                }
+            ]
+        }
+        try:
+            response = requests.post(url, headers=headers, json=data)
+            if response.status_code == 201:
+                return {"status": 201, "answer": "Pull request created"}
+            else:
+                return {"status": response.status_code, "answer": response.text}
+        except Exception as e:
+            logger.error(f"Error BitBucket: {e}")
+            return {"status": 500, "answer": str(e)}
+
+    def get_pull_request(self, repository, pull_request_id):
+        if self.provider == "github":
+             return {"status": 501, "answer": "Get PR not implemented for GitHub yet"}
+
+        headers = {"Authorization": f"Bearer {self.token_bb}"}
+        url = f"{self.main_url}/{self.project_bb}/repos/{repository}/pull-requests/{pull_request_id}"
+        try:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 200:
+                return {"status": 200, "answer": response.json()}
+            else:
+                return {"status": response.status_code, "answer": response.text}
+        except Exception as e:
+            logger.error(f"Error BitBucket: {e}")
+            return {"status": 500, "answer": str(e)}
+
+    def comment_pull_request(self, repository, pull_request_id, text):
+        if self.provider == "github":
+             return {"status": 501, "answer": "Comment PR not implemented for GitHub yet"}
+
+        headers = {"Authorization": f"Bearer {self.token_bb}"}
+        url = f"{self.main_url}/{self.project_bb}/repos/{repository}/pull-requests/{pull_request_id}/comments"
+        data = {"text": text}
+        try:
+            response = requests.post(url, headers=headers, json=data)
+            if response.status_code == 201:
+                return {"status": 201, "answer": "Comment created"}
+            else:
+                return {"status": response.status_code, "answer": response.text}
+        except Exception as e:
+            logger.error(f"Error BitBucket: {e}")
+            return {"status": 500, "answer": str(e)}
+            
+    def comment_line_code(self, repository, pull_request_id, text, path, line):
+        if self.provider == "github":
+             return {"status": 501, "answer": "Comment Line not implemented for GitHub yet"}
+
+        headers = {"Authorization": f"Bearer {self.token_bb}"}
+        url = f"{self.main_url}/{self.project_bb}/repos/{repository}/pull-requests/{pull_request_id}/comments"
+        data = {
+            "text": text,
+            "anchor": {
+                "line": line,
+                "lineType": "ADDED",
+                "fileType": "TO",
+                "path": path,
+                "srcPath": path
+            }
+        }
+        try:
+            response = requests.post(url, headers=headers, json=data)
+            if response.status_code == 201:
+                return {"status": 201, "answer": "Comment created"}
+            else:
+                return {"status": response.status_code, "answer": response.text}
+        except Exception as e:
+            logger.error(f"Error BitBucket: {e}")
+            return {"status": 500, "answer": str(e)}
 
     def get_users_permission(self, repo: str, gen: bool = False) -> dict:
         """Получить права доступа пользователей к репозиторию"""
