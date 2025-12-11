@@ -1,0 +1,41 @@
+# Agent SPC Dependencies
+
+# Core - LangGraph & LangChain
+langgraph==0.4.7
+langchain-community
+langchain-core
+
+# LLM Integration
+gigachat
+
+# Environment & Configuration
+python-dotenv==1.0.1
+
+# Code Quality Tools
+pylint==3.0.0
+nbqa==1.8.4
+sqlfluff==3.1.1
+
+# Data Processing
+chardet==5.2.0
+pydantic
+
+# Web Framework
+flask
+
+# ML/AI
+FlagEmbedding
+mlflow
+
+# Text Processing
+beautifulsoup4
+markdown
+
+# Git Operations
+gitpython
+
+# HTTP & Networking
+requests
+
+# Logging
+loguru
