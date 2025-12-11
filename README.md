@@ -100,8 +100,8 @@ python run_mlflow_server.py
 
 ## 👤 Контакты
 
-<span style="color:red">**ФИО руководителя**: ЗАПОЛНИТЬ</span>  
-<span style="color:red">**Email**: ЗАПОЛНИТЬ</span>
+<span style="color:red">**ФИО руководителя**: Панкеев Глеб Сергеевич</span>  
+<span style="color:red">**Email**: datascientistrip@gmail.com</span>
 
 ---
 
