@@ -17,10 +17,25 @@ def get_history_prompt(
     if get_tools:
         for name_tool, out_tool in get_tools.items():
             tools_out += f"Получен ответ от инструмента: **{name_tool}**\n{out_tool}\n{'-'*80}\n"
+            
+    # Добавляем контекст диалога (Conversation Memory)
+    conversation_context = ""
+    if hasattr(state, 'conversation_summary') and state.conversation_summary:
+        conversation_context += f"САММАРИ ПРЕДЫДУЩЕГО ДИАЛОГА:\n{state.conversation_summary}\n\n"
+    
+    if hasattr(state, 'conversation_history') and state.conversation_history:
+        conversation_context += "ПОСЛЕДНИЕ СООБЩЕНИЯ:\n"
+        for msg in state.conversation_history:
+            role = "User" if msg["role"] == "user" else "AI"
+            conversation_context += f"{role}: {msg['content']}\n"
+        conversation_context += "\n" + "-"*80 + "\n"
+            
+    full_context = conversation_context + (empty if not tools_out else tools_out)
+            
     new_prompt = prompt.format(
         question=quest,
         tools=tools,
-        run_tools=empty if not tools_out else tools_out
+        run_tools=full_context
     )
     return new_prompt
 

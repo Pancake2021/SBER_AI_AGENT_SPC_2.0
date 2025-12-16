@@ -19,6 +19,10 @@ class State(ParseLLM):
         self.prompt_tokens = -1
         self.completion_tokens = -1
         self.total_tokens = -1
+        
+        # Conversation Memory
+        self.conversation_summary = ""
+        self.conversation_history = []
 
     def count_add(self) -> None:
         """Увеличить счётчик шагов"""

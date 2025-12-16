@@ -6,7 +6,7 @@ from tools.tools import get_tools
 from langgraph.graph import StateGraph, END
 
 
-def agent(text: str):
+def agent(text: str, memory_context: dict = None):
     """Главная функция граф агента с StateGraph"""
     graph = StateGraph(AgentState)
     graph.add_node("show_tools", get_tools)
@@ -22,7 +22,13 @@ def agent(text: str):
     graph.set_entry_point("show_tools")
     graph.add_edge("show_tools", "run_tool")
     grap = graph.compile()
+    
+    # Инициализация State с памятью
     state = State()
+    if memory_context:
+        state.conversation_summary = memory_context.get("summary", "")
+        state.conversation_history = memory_context.get("history", [])
+        
     result = grap.invoke(
         {
             "user_query": text,

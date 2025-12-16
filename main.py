@@ -5,12 +5,15 @@ from schemas.answer import Answer
 from loguru import logger
 
 
-def run_agent(task: str) -> Answer:
+from agent.memory.conversation_memory import ConversationMemory
+
+def run_agent(task: str, memory: ConversationMemory = None) -> Answer:
     """
     Главная функция агента для обработки запросов
     
     Args:
         task: Запрос пользователя на естественном языке
+        memory: Объект памяти диалога
     
     Returns:
         Answer: Структурированный ответ агента
@@ -33,7 +36,15 @@ def run_agent(task: str) -> Answer:
     
     # Обработка релевантного запроса через агента
     try:
-        answer_text, state = agent(task)
+        # Получаем контекст из памяти
+        memory_context = memory.get_context() if memory else None
+        
+        answer_text, state = agent(task, memory_context=memory_context)
+        
+        # Сохраняем результат в память
+        if memory:
+            memory.add_message("user", task)
+            memory.add_message("ai", answer_text)
         
         logger.info("Запрос успешно обработан")
         
@@ -61,23 +72,37 @@ def run_agent(task: str) -> Answer:
 if __name__ == "__main__":
     import sys
     
-    if len(sys.argv) > 1:
-        query = " ".join(sys.argv[1:])
-    else:
-        print("Agent SPC - Интеллектуальный помощник для работы с репозиториями")
-        print("-" * 60)
-        query = input("Введите ваш запрос: ")
+    print("Agent SPC - Интеллектуальный помощник (с памятью)")
+    print("-" * 60)
+    print("Введите 'exit' или 'quit' для выхода")
     
-    if query.strip():
-        result = run_agent(query)
-        print("\n" + "=" * 60)
-        print("ОТВЕТ АГЕНТА:")
-        print("=" * 60)
-        print(result.text)
-        
-        if result.score:
-            print(f"\nОценка: {result.score}")
-        if result.tokens_used:
-            print(f"Использовано токенов: {result.tokens_used}")
-    else:
-        print("Пустой запрос. Выход.")
+    # Инициализация памяти
+    memory = ConversationMemory(window_size=3)
+    
+    while True:
+        try:
+            query = input("\nВведите ваш запрос: ").strip()
+            if not query:
+                continue
+                
+            if query.lower() in ('exit', 'quit'):
+                print("До свидания!")
+                break
+                
+            result = run_agent(query, memory=memory)
+            
+            print("\n" + "=" * 60)
+            print("ОТВЕТ АГЕНТА:")
+            print("=" * 60)
+            print(result.text)
+            
+            if result.score:
+                print(f"\nОценка: {result.score}")
+            if result.tokens_used:
+                print(f"Использовано токенов: {result.tokens_used}")
+                
+        except KeyboardInterrupt:
+            print("\nВыход...")
+            break
+        except Exception as e:
+            print(f"\nОшибка: {e}")
