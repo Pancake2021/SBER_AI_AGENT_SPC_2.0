@@ -11,8 +11,15 @@ from tools.info_tool import InfoTools
 from tools.evalution_repo.evalution_repo import EvalutionRepo
 from tools.evalution_code.awerage_main import EvalutionCode
 from tools.tools import TOOLS_DESCRIPTION
+from tools.feedback import FeedbackCollector
+from agent.memory.conversation_memory import ConversationMemory
+from main import run_agent
 
 app = Flask(__name__)
+
+# Хранилище сессий памяти
+# {session_id: ConversationMemory}
+SESSIONS = {}
 
 
 @app.route("/show_tools", methods=["GET"])
@@ -140,6 +147,72 @@ def info_tools():
         return jsonify({"status": 500, "answer": f"Ошибка: {str(e)}"})
 
 
+@app.route("/feedback", methods=["POST"])
+def feedback():
+    """Сохранение обратной связи (Active Learning)"""
+    data = request.json or {}
+    
+    # Валидация
+    required = ["query", "response", "rating"]
+    if not all(k in data for k in required):
+        return jsonify({"status": 400, "answer": f"Неполные данные. Требуются: {required}"})
+    
+    try:
+        collector = FeedbackCollector()
+        record = collector.save_feedback(
+            query=data["query"],
+            response=data["response"],
+            rating=int(data["rating"]),
+            feedback_text=data.get("feedback", ""),
+            meta=data.get("meta", {})
+        )
+        
+        # Получаем обновленную статистику
+        stats = collector.get_stats()
+        
+        return jsonify({
+            "status": 200, 
+            "answer": "Feedback saved",
+            "record_id": record.get("id"),
+            "stats": stats
+        })
+    except Exception as e:
+        logger.error(f"Ошибка feedback: {str(e)}")
+        return jsonify({"status": 500, "answer": f"Ошибка: {str(e)}"})
+
+
+@app.route("/agent", methods=["POST"])
+def agent_endpoint():
+    """Запуск агента с поддержкой памяти"""
+    data = request.json or {}
+    query = data.get("query", "")
+    session_id = data.get("session_id", "default")
+    
+    if not query:
+        return jsonify({"status": 400, "answer": "Не указан query"})
+    
+    try:
+        # Получаем или создаем память для сессии
+        if session_id not in SESSIONS:
+            SESSIONS[session_id] = ConversationMemory(window_size=5)
+        
+        memory = SESSIONS[session_id]
+        
+        # Запускаем агента
+        result = run_agent(query, memory=memory)
+        
+        return jsonify({
+            "status": 200,
+            "answer": result.text,
+            "score": result.score,
+            "tokens_used": result.tokens_used,
+            "session_id": session_id
+        })
+    except Exception as e:
+        logger.error(f"Ошибка agent_endpoint: {str(e)}")
+        return jsonify({"status": 500, "answer": f"Ошибка: {str(e)}"})
+
+
 @app.route("/health", methods=["GET"])
 def health():
     """Проверка здоровья сервера"""
@@ -171,6 +244,8 @@ if __name__ == "__main__":
     logger.info("  POST /gen_readme - генерация README")
     logger.info("  POST /awerage_repo - оценка оформления")
     logger.info("  POST /rate_repository - оценка кода")
+    logger.info("  POST /feedback - обратная связь (Active Learning)")
+    logger.info("  POST /agent - умный агент с памятью")
     logger.info("  GET  /info_tools - информация")
     
     app.run(host="0.0.0.0", port=5001, debug=False)
