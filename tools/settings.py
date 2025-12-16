@@ -43,6 +43,13 @@ class Configure:
         self.path_card = os.getenv('PATH_BASE_CARD', '/home/datalab/')
         self.path_lint = os.getenv('PATH_ERRORS_FILE', 'tools/evalution_code/errors/')
         
+        # GraphRAG Settings
+        self.path_graph = os.getenv('PATH_GRAPH_FILE', 'output/knowledge_graph.pkl')
+        self.use_graph_rag = os.getenv('USE_GRAPH_RAG', 'true').lower() == 'true'
+        
+        # Active Learning / Feedback
+        self.path_feedback = os.getenv('PATH_FEEDBACK_FILE', 'output/feedback_dataset.jsonl')
+
         # Пути к конфигам для linters
         self.pylint_py = os.getenv('PYLINTRC', 'tools/evalution_code/config/pylintrc')
         self.pylint_ipynb = os.getenv('PYLINTRC_IPYNB', 'tools/evalution_code/config/pylintrc_ipynb')

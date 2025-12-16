@@ -1,10 +1,17 @@
-"""Семантический поиск по базе знаний"""
+"""Семантический поиск по базе знаний с GraphRAG"""
 from tools.bitbucket import ConnectionAPI
 from agent.tools.run_giga import llm
 from agent.prompts.prompts import sys_prompt_search
 from pathlib import Path
 import pickle
 import os
+
+# GraphRAG для расширения контекста
+try:
+    from tools.graph_rag import GraphRAG
+    HAS_GRAPH_RAG = True
+except ImportError:
+    HAS_GRAPH_RAG = False
 
 try:
     from FlagEmbedding import BGEM3FlagModel
@@ -16,12 +23,16 @@ except ImportError:
 class Search(ConnectionAPI):
     """Класс для семантического поиска с BGEM3FlagModel"""
 
-    def __init__(self, top_k: int = 7):
+    def __init__(self, top_k: int = 7, use_graph: bool = True):
         super().__init__()
         self.top_k = top_k
         self.model = None
         self.texts = []
         self.vecs = None
+        
+        # GraphRAG для расширения контекста
+        self.use_graph = use_graph and HAS_GRAPH_RAG
+        self.graph_rag = GraphRAG() if self.use_graph else None
         
         if HAS_FLAG_EMBEDDING and self.path_model:
             self.initial_model()
@@ -60,6 +71,11 @@ class Search(ConnectionAPI):
                 continue
         
         self.texts = texts
+        
+        # Строим граф знаний если включен GraphRAG
+        if self.use_graph and self.graph_rag and texts:
+            self.graph_rag.build_graph(texts, use_llm=False)
+        
         return texts
 
     def get_vecs_bge(self) -> dict:
@@ -252,6 +268,16 @@ class Search(ConnectionAPI):
         # Сортируем по финальному скору
         sorted_results = sorted(combined.items(), key=lambda x: x[1], reverse=True)[:self.top_k]
         
+        # === GraphRAG: расширение контекста ===
+        base_indices = [idx for idx, _ in sorted_results]
+        graph_indices = []
+        
+        if self.use_graph and self.graph_rag and self.graph_rag.is_ready():
+            # Получаем дополнительные документы через граф
+            graph_indices = self.graph_rag.get_context_expansion(
+                base_indices, quest, max_additional=2
+            )
+        
         # Собираем результаты
         relevant_doc = {}
         chunks = []
@@ -261,7 +287,19 @@ class Search(ConnectionAPI):
                 text_data = self.texts[idx]
                 relevant_doc[text_data["file"]] = {
                     "content": text_data["content"][:500],
-                    "score": f"{score:.4f}"
+                    "score": f"{score:.4f}",
+                    "source": "vector"
+                }
+                chunks.append(text_data["content"])
+        
+        # Добавляем документы из графа
+        for idx in graph_indices:
+            if idx < len(self.texts) and idx not in base_indices:
+                text_data = self.texts[idx]
+                relevant_doc[text_data["file"]] = {
+                    "content": text_data["content"][:500],
+                    "score": "graph",
+                    "source": "graph_rag"
                 }
                 chunks.append(text_data["content"])
         
