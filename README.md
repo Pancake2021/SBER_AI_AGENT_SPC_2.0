@@ -1,108 +1,19 @@
-# 🤖 Agent SPC - AI Agent for Code Analysis
+# SBER_AI_AGENT_SPC_2.0
 
-## 📚 Описание
+Agent tuning experiments focused on practical assistant behavior and task adaptation.
 
-**Agent SPC** (DSC 18) - интеллектуальный агент для работы с репозиториями BitBucket. 
-Использует GigaChat LLM для обработки запросов на естественном языке и предоставляет 
-набор инструментов для анализа, оценки и документирования кода.
+## Demo
+![Demo](https://raw.githubusercontent.com/Pancake2021/Pancake2021/main/assets/torch-flicker.gif)
 
-## 🎯 Возможности
-
-| Инструмент | Описание | Оценка |
-|------------|----------|--------|
-| 🔍 **search_content** | Семантический поиск по базе знаний | - |
-| 📖 **read_file** | Чтение файлов из репозитория | - |
-| 📁 **show_files** | Список файлов репозитория | - |
-| 📝 **gen_readme** | Генерация README.md | - |
-| 📊 **awerage_repo** | Оценка оформления репозитория | 0-26 баллов |
-| 🔬 **rate_repository** | Оценка качества кода | Python/Jupyter/SQL |
-
-## 🏗️ Структура проекта
-
-```
-DSC_18_Agent_SPC/
-├── agent/                          # Ядро агента
-│   ├── memory/                     # State Management
-│   ├── parsing/                    # Парсинг LLM ответов
-│   ├── prompts/                    # Системные промпты
-│   ├── state_graph/                # StateGraph (LangGraph)
-│   └── tools/                      # LLM Integration
-├── tools/                          # Инструменты
-│   ├── evalution_code/             # Оценка кода
-│   └── evalution_repo/             # Оценка репозитория
-├── schemas/                        # Pydantic модели
-├── main.py                         # Entry Point
-├── run_mlflow_server.py            # Flask API
-└── requirements.txt                # Зависимости
-```
-
-## 🚀 Быстрый старт
-
-### 1. Установка зависимостей
+## How to run
 ```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+python main.py
 ```
 
-### 2. Настройка окружения
-```bash
-cp .env.example .env
-# Отредактируйте .env, добавив свои credentials
-```
-
-### 3. Запуск агента
-```bash
-# CLI режим
-python main.py "Сделай оценку репозитория my_repo"
-
-# Или как API сервер
-python run_mlflow_server.py
-```
-
-## 📡 API Endpoints
-
-| Метод | Endpoint | Описание |
-|-------|----------|----------|
-| GET | `/show_tools` | Список инструментов |
-| POST | `/search_content` | Поиск контента |
-| POST | `/read_file` | Чтение файла |
-| POST | `/show_files` | Список файлов |
-| POST | `/gen_readme` | Генерация README |
-| POST | `/awerage_repo` | Оценка оформления |
-| POST | `/rate_repository` | Оценка кода |
-| GET | `/info_tools` | Информация |
-
-## 🔧 Технологии
-
-- **LLM**: GigaChat-2-Max
-- **Embeddings**: BGEM3FlagModel (Dense + Sparse + ColBERT)
-- **State Management**: LangGraph StateGraph
-- **Web**: Flask REST API
-- **Linting**: pylint, nbqa, sqlfluff
-- **Tracking**: MLflow
-
-## 📊 Система оценки
-
-### Оценка оформления (0-26 баллов)
-- **Структура** (0-9): .gitignore, папки, файлы, requirements
-- **README** (0-17): содержание, разделы, контакты, описание скриптов
-
-### Оценка кода
-- **Python (.py)**: pylint (0-10 баллов)
-- **Jupyter (.ipynb)**: nbqa + pylint
-- **SQL (.sql)**: sqlfluff (PASS/ERRORS)
-
-## 📋 Требования
-
-- Python 3.10+
-- Доступ к BitBucket API
-- GigaChat API (через proxy)
-- BGEM3FlagModel (опционально)
-
-## 👤 Контакты
-
-<span style="color:red">**ФИО руководителя**: Панкеев Глеб Сергеевич</span>  
-<span style="color:red">**Email**: datascientistrip@gmail.com</span>
-
----
-
-**Agent SPC - Ваш помощник в работе с кодом! 🚀**
+## Results
+- Iterative prompt and tuning setups for agent quality improvements.
+- Reusable experiment structure.
+- Baseline-to-improved behavior comparison.
